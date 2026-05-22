@@ -1,0 +1,541 @@
+\<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WMS Bin Checker DC Sagaranten</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+      body { background-color: #f0f2f5; font-family: 'Plus Jakarta Sans', sans-serif; color: #333; padding-bottom: 30px;}
+      .header-wings { background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%); color: white; padding: 20px 15px; text-align: center; border-radius: 0 0 20px 20px; box-shadow: 0 4px 15px rgba(183, 28, 28, 0.2); margin-bottom: 25px;}
+      .card-main { border: none; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.06); padding: 20px;}
+      .btn-scan { border-radius: 12px; font-weight: 700; padding: 14px; font-size: 1.1rem; background-color: #d32f2f; color: white; border: none; box-shadow: 0 4px 10px rgba(211, 47, 47, 0.3); width: 100%;}
+      .btn-camera { background-color: #2c3e50; color: white; border-radius: 0 10px 10px 0; border: none; padding: 0 20px; font-weight: 600;}
+      .form-control-lg { border-radius: 10px 0 0 10px; font-size: 1.05rem; border: 1px solid #ced4da;}
+      .task-card { background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 15px; margin-top: 20px; text-align: center;}
+      .task-num { font-size: 1.3rem; font-weight: 800; line-height: 1; margin-top: 5px;}
+      .analytic-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid #f0f0f0; font-size: 0.8rem; }
+      .analytic-row:last-child { border-bottom: none; }
+      .analytic-badge { font-weight: 700; font-size: 0.85rem; padding: 2px 10px; border-radius: 20px; }
+      #reader { width: 100%; border-radius: 12px; overflow: hidden; }
+      .custom-radio-group { display: flex; gap: 8px; margin-top: 15px; }
+      .custom-radio-btn { display: none; }
+      .custom-radio-label {
+        flex: 1; text-align: center; padding: 12px 5px; border-radius: 10px;
+        border: 2px solid #cbd5e1; font-weight: 800; font-size: 0.85rem;
+        cursor: pointer; transition: all 0.2s ease-in-out; color: #475569;
+        background-color: #f8fafc;
+      }
+      .custom-radio-btn:checked + .label-match { background-color: #22c55e; border-color: #22c55e; color: white; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4); }
+      .custom-radio-btn:checked + .label-notmatch { background-color: #ef4444; border-color: #ef4444; color: white; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); }
+      .custom-radio-btn:checked + .label-empty { background-color: #f59e0b; border-color: #f59e0b; color: white; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4); }
+    </style>
+  </head>
+  <body>
+    
+    <div class="header-wings">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <h3 class="m-0 fw-bold text-start">📦 WMS Bin Checker DC Sagaranten</h3>
+          <small style="opacity: 0.85;" class="text-start d-block">Live Scanner DC Sagaranten</small>
+        </div>
+        <button type="button" class="btn btn-sm btn-light fw-bold" onclick="fetchInitialData()" style="border-radius: 20px; padding: 5px 12px;">🔄 Refresh</button>
+      </div>
+    </div>
+
+    <div class="container pb-4">
+      <div class="card card-main">
+        <form id="scanForm" onsubmit="handleFormSubmit(event)">
+          <datalist id="binList"></datalist>
+          <div class="mb-4">
+            <label class="form-label fw-bold text-secondary text-uppercase mb-2">🔍 Scan Storage Bin</label>
+            <div class="input-group input-group-lg">
+              <input type="text" class="form-control" id="binCode" list="binList" placeholder="Contoh: AB-02-04" required autocomplete="off">
+              <button class="btn btn-camera" type="button" onclick="openScanner()">📷 Scan Live</button>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-scan" id="btnSubmit" disabled>⏳ Menyambung ke Database...</button>
+        </form>
+      </div>
+
+      <div class="task-card" id="pickSlotPanel">
+        <h6 class="fw-bold text-secondary text-uppercase mb-3" style="font-size:0.75rem; letter-spacing:0.6px;">📋 Progres Bin Pick Slot</h6>
+        <div class="row text-center mb-4">
+          <div class="col border-end px-1"><small class="text-secondary fw-bold" style="font-size:0.6rem;">Target</small><div class="task-num text-primary" style="font-size:1.05rem;" id="psTotal">-</div></div>
+          <div class="col border-end px-1"><small class="text-secondary fw-bold" style="font-size:0.6rem;">Selesai</small><div class="task-num text-success" style="font-size:1.05rem;" id="psDone">-</div></div>
+          <div class="col border-end px-1"><small class="text-secondary fw-bold" style="font-size:0.6rem;">Sesuai%</small><div class="task-num text-danger" style="font-size:1.05rem;" id="psPctMatch">-%</div></div>
+          <div class="col border-end px-1"><small class="text-secondary fw-bold" style="font-size:0.6rem;">Kosong</small><div class="task-num text-warning text-dark" style="font-size:1.05rem;" id="psKosong">-</div></div>
+          <div class="col px-1"><small class="text-secondary fw-bold" style="font-size:0.6rem;">Blm Val</small><div class="task-num text-secondary" style="font-size:1.05rem;" id="psPctBelum">-%</div></div>
+        </div>
+
+        <div class="mt-2 text-start">
+           <div class="d-flex align-items-center mb-2"><span style="font-size: 1.1rem; margin-right: 6px;">⚠️</span><h6 class="fw-bold m-0" style="font-size: 0.8rem; color: #b45309; text-transform: uppercase;">Daftar Belum Validasi</h6></div>
+           <div class="table-responsive" style="max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+              <table class="table table-hover align-middle mb-0" style="font-size: 0.75rem;">
+                 <thead style="position: sticky; top: 0; z-index: 1;"><tr class="text-secondary" style="font-size: 0.7rem; letter-spacing: 0.5px; background-color: #f8fafc;"><th style="white-space: nowrap; padding-left: 12px; background-color: #f8fafc;">Storage Bin</th><th style="background-color: #f8fafc;">Product</th><th style="background-color: #f8fafc;">MID</th></tr></thead>
+                 <tbody id="psTableBelum"></tbody>
+              </table>
+           </div>
+        </div>
+        <div class="mt-4 text-start">
+           <div class="d-flex align-items-center mb-2"><span style="font-size: 1.1rem; margin-right: 6px;">❌</span><h6 class="fw-bold m-0" style="font-size: 0.8rem; color: #b91c1c; text-transform: uppercase;">Daftar Not Match</h6></div>
+           <div class="table-responsive" style="max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+              <table class="table table-hover align-middle mb-0" style="font-size: 0.75rem;">
+                 <thead style="position: sticky; top: 0; z-index: 1;"><tr class="text-secondary" style="font-size: 0.7rem; letter-spacing: 0.5px; background-color: #f8fafc;"><th style="white-space: nowrap; padding-left: 12px; background-color: #f8fafc;">Storage Bin</th><th style="background-color: #f8fafc;">Product</th><th style="background-color: #f8fafc;">MID</th></tr></thead>
+                 <tbody id="psTableNotMatch"></tbody>
+              </table>
+           </div>
+        </div>
+        <div class="mt-4 pt-3 border-top">
+          <h6 class="fw-bold mb-2 text-start" style="font-size: 0.72rem; letter-spacing: 0.5px; color: #b71c1c;">📊 REKAP BUNTUT 01 & 02</h6>
+          <div class="analytic-row"><span>Total Data Bin Mat</span><span class="analytic-badge" style="background:#e3f2fd; color:#1565c0;" id="lblTotalBinMat">-</span></div>
+          <div class="analytic-row"><span>Ada di Bin Mat & Stok</span><span class="analytic-badge" style="background:#e8f5e9; color:#2e7d32;" id="lblBinMat0102InStock">-</span></div>
+          <div class="analytic-row"><span>Ada di Bin Mat, Tidak ada di Stok</span><span class="analytic-badge" style="background:#ffebee; color:#c62828;" id="lblBinMat0102NotInStock">-</span></div>
+          <div class="analytic-row"><span>Ada di Stok, Tidak ada di Bin Mat</span><span class="analytic-badge" style="background:#fff8e1; color:#f57f17;" id="lblStock0102NotInBinMat">-</span></div>
+        </div>
+      </div>
+
+      <div class="task-card" id="reverseBinPanel">
+        <h6 class="fw-bold text-secondary text-uppercase mb-3" style="font-size:0.75rem; letter-spacing:0.6px;">📋 Progres Reverse Bin</h6>
+        <div class="row text-center mb-4">
+          <div class="col border-end px-1"><small class="text-secondary fw-bold" style="font-size:0.6rem;">Target</small><div class="task-num text-primary" style="font-size:1.05rem;" id="rbTotal">-</div></div>
+          <div class="col border-end px-1"><small class="text-secondary fw-bold" style="font-size:0.6rem;">Selesai</small><div class="task-num text-success" style="font-size:1.05rem;" id="rbDone">-</div></div>
+          <div class="col border-end px-1"><small class="text-secondary fw-bold" style="font-size:0.6rem;">Sesuai%</small><div class="task-num text-danger" style="font-size:1.05rem;" id="rbPctMatch">-%</div></div>
+          <div class="col border-end px-1"><small class="text-secondary fw-bold" style="font-size:0.6rem;">Kosong</small><div class="task-num text-warning text-dark" style="font-size:1.05rem;" id="rbKosong">-</div></div>
+          <div class="col px-1"><small class="text-secondary fw-bold" style="font-size:0.6rem;">Blm Val</small><div class="task-num text-secondary" style="font-size:1.05rem;" id="rbPctBelum">-%</div></div>
+        </div>
+
+        <div class="mt-2 text-start">
+           <div class="d-flex align-items-center mb-2"><span style="font-size: 1.1rem; margin-right: 6px;">⚠️</span><h6 class="fw-bold m-0" style="font-size: 0.8rem; color: #b45309; text-transform: uppercase;">Daftar Belum Validasi</h6></div>
+           <div class="table-responsive" style="max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+              <table class="table table-hover align-middle mb-0" style="font-size: 0.75rem;">
+                 <thead style="position: sticky; top: 0; z-index: 1;"><tr class="text-secondary" style="font-size: 0.7rem; letter-spacing: 0.5px; background-color: #f8fafc;"><th style="white-space: nowrap; padding-left: 12px; background-color: #f8fafc;">Storage Bin</th><th style="background-color: #f8fafc;">Product</th><th style="background-color: #f8fafc;">MID</th></tr></thead>
+                 <tbody id="rbTableBelum"></tbody>
+              </table>
+           </div>
+        </div>
+        <div class="mt-4 text-start">
+           <div class="d-flex align-items-center mb-2"><span style="font-size: 1.1rem; margin-right: 6px;">❌</span><h6 class="fw-bold m-0" style="font-size: 0.8rem; color: #b91c1c; text-transform: uppercase;">Daftar Not Match</h6></div>
+           <div class="table-responsive" style="max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+              <table class="table table-hover align-middle mb-0" style="font-size: 0.75rem;">
+                 <thead style="position: sticky; top: 0; z-index: 1;"><tr class="text-secondary" style="font-size: 0.7rem; letter-spacing: 0.5px; background-color: #f8fafc;"><th style="white-space: nowrap; padding-left: 12px; background-color: #f8fafc;">Storage Bin</th><th style="background-color: #f8fafc;">Product</th><th style="background-color: #f8fafc;">MID</th></tr></thead>
+                 <tbody id="rbTableNotMatch"></tbody>
+              </table>
+           </div>
+        </div>
+      </div>
+
+      <div class="task-card" id="reverseBinPanel">
+        <h6 class="fw-bold text-secondary text-uppercase mb-3" style="font-size:0.75rem; letter-spacing:0.6px;">📋 Progres Reverse Bin</h6>
+        <div class="row text-center mb-4">
+          <div class="col-3 border-end px-1"><small class="text-secondary fw-bold" style="font-size:0.65rem;">Target</small><div class="task-num text-primary" style="font-size:1.15rem;" id="rbTotal">-</div></div>
+          <div class="col-3 border-end px-1"><small class="text-secondary fw-bold" style="font-size:0.65rem;">Selesai</small><div class="task-num text-success" style="font-size:1.15rem;" id="rbDone">-</div></div>
+          <div class="col-3 border-end px-1"><small class="text-secondary fw-bold" style="font-size:0.65rem;">Sesuai %</small><div class="task-num text-danger" style="font-size:1.15rem;" id="rbPctMatch">-%</div></div>
+          <div class="col-3 px-1"><small class="text-secondary fw-bold" style="font-size:0.65rem;">Blm Validasi</small><div class="task-num text-warning text-dark" style="font-size:1.15rem;" id="rbPctBelum">-%</div></div>
+        </div>
+
+        <div class="mt-2 text-start">
+           <div class="d-flex align-items-center mb-2">
+             <span style="font-size: 1.1rem; margin-right: 6px;">⚠️</span>
+             <h6 class="fw-bold m-0" style="font-size: 0.8rem; color: #b45309; text-transform: uppercase;">Daftar Belum Validasi</h6>
+           </div>
+           <div class="table-responsive" style="max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+              <table class="table table-hover align-middle mb-0" style="font-size: 0.75rem;">
+                 <thead style="position: sticky; top: 0; z-index: 1;">
+                    <tr class="text-secondary" style="font-size: 0.7rem; letter-spacing: 0.5px; background-color: #f8fafc;">
+                       <th style="white-space: nowrap; padding-left: 12px; background-color: #f8fafc;">Storage Bin</th>
+                       <th style="background-color: #f8fafc;">Product</th>
+                       <th style="background-color: #f8fafc;">MID</th>
+                    </tr>
+                 </thead>
+                 <tbody id="rbTableBelum"></tbody>
+              </table>
+           </div>
+        </div>
+
+        <div class="mt-4 text-start">
+           <div class="d-flex align-items-center mb-2">
+             <span style="font-size: 1.1rem; margin-right: 6px;">❌</span>
+             <h6 class="fw-bold m-0" style="font-size: 0.8rem; color: #b91c1c; text-transform: uppercase;">Daftar Not Match</h6>
+           </div>
+           <div class="table-responsive" style="max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+              <table class="table table-hover align-middle mb-0" style="font-size: 0.75rem;">
+                 <thead style="position: sticky; top: 0; z-index: 1;">
+                    <tr class="text-secondary" style="font-size: 0.7rem; letter-spacing: 0.5px; background-color: #f8fafc;">
+                       <th style="white-space: nowrap; padding-left: 12px; background-color: #f8fafc;">Storage Bin</th>
+                       <th style="background-color: #f8fafc;">Product</th>
+                       <th style="background-color: #f8fafc;">MID</th>
+                    </tr>
+                 </thead>
+                 <tbody id="rbTableNotMatch"></tbody>
+              </table>
+           </div>
+        </div>
+      </div>
+
+      <div class="task-card" id="reverseBinPanel">
+        <h6 class="fw-bold text-secondary text-uppercase mb-3" style="font-size:0.75rem; letter-spacing:0.6px;">📋 Progres Reverse Bin</h6>
+        <div class="row text-center mb-3">
+          <div class="col-3 border-end px-1"><small class="text-secondary" style="font-size:0.62rem;">Target</small><div class="task-num text-primary" style="font-size:1.1rem;" id="rbTotal">-</div></div>
+          <div class="col-3 border-end px-1"><small class="text-secondary" style="font-size:0.62rem;">Selesai</small><div class="task-num text-success" style="font-size:1.1rem;" id="rbDone">-</div></div>
+          <div class="col-3 border-end px-1"><small class="text-secondary" style="font-size:0.62rem;">Sesuai %</small><div class="task-num text-danger" style="font-size:1.1rem;" id="rbPctMatch">-%</div></div>
+          <div class="col-3 px-1"><small class="text-secondary" style="font-size:0.62rem;">Blm Validasi</small><div class="task-num text-warning text-dark" style="font-size:1.1rem;" id="rbPctBelum">-%</div></div>
+        </div>
+
+        <div class="mt-3 text-start">
+           <h6 class="fw-bold mb-1" style="font-size: 0.75rem; color: #b45309;">⚠️ Daftar Belum Validasi</h6>
+           <div style="max-height: 150px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px;">
+              <table class="table table-sm table-hover mb-0" style="font-size: 0.72rem; line-height: 1.2;">
+                 <thead class="table-light" style="position: sticky; top: 0;"><tr><th>Bin</th><th>Product</th><th>MID</th></tr></thead>
+                 <tbody id="rbTableBelum"></tbody>
+              </table>
+           </div>
+        </div>
+
+        <div class="mt-3 text-start">
+           <h6 class="fw-bold mb-1" style="font-size: 0.75rem; color: #b91c1c;">❌ Daftar Not Match</h6>
+           <div style="max-height: 150px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px;">
+              <table class="table table-sm table-hover mb-0" style="font-size: 0.72rem; line-height: 1.2;">
+                 <thead class="table-light" style="position: sticky; top: 0;"><tr><th>Bin</th><th>Product</th><th>MID</th></tr></thead>
+                 <tbody id="rbTableNotMatch"></tbody>
+              </table>
+           </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="scannerModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+        <div class="modal-content">
+          <div class="modal-header border-0">
+            <h5 class="modal-title fw-bold">Arahkan Kamera ke Barcode</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" onclick="stopScanner()"></button>
+          </div>
+          <div class="modal-body pt-0"><div id="reader"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      const API_URL = "https://script.google.com/macros/s/AKfycbwPv_vB9XaSIV3fHZ34HZTi4Qa1MxNfH2nz20_pi7nd7xT0eKzoO04IIT5LdkZDOfeMvw/exec"; 
+      let html5QrCode, scanModal, masterDataMids = {};
+
+      document.addEventListener("DOMContentLoaded", function() {
+        scanModal = new bootstrap.Modal(document.getElementById('scannerModal'));
+        document.getElementById('scannerModal').addEventListener('hidden.bs.modal', stopScanner);
+        fetchInitialData();
+      });
+
+      async function sendRequest(payload) {
+        const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
+        return await res.json();
+      }
+
+      async function fetchInitialData() {
+        const btn = document.getElementById('btnSubmit');
+        btn.disabled = true; btn.innerHTML = '⏳ Refreshing...';
+        try {
+          const data = await sendRequest({ action: 'init' });
+          if(data.status === 'success') {
+            const binList = document.getElementById('binList'); binList.innerHTML = '';
+            data.bins.forEach(b => { let opt = document.createElement('option'); opt.value = b; binList.appendChild(opt); });
+            updateTaskBoard(data);
+            masterDataMids = data.masterMids || {}; 
+            btn.disabled = false; btn.innerHTML = '🔍 Cek Bin Ini';
+          }
+        } catch (e) { btn.disabled = false; btn.innerHTML = '🔍 Cek Bin Ini (Offline)'; }
+      }
+
+      function updateTaskBoard(data) {
+        if (!data.pickSlot) return; 
+
+        document.getElementById('psTotal').innerText = data.pickSlot.target; document.getElementById('psDone').innerText = data.pickSlot.match;
+        document.getElementById('psPctMatch').innerText = data.pickSlot.pctMatch + '%'; document.getElementById('psPctBelum').innerText = data.pickSlot.pctBelum + '%';
+        document.getElementById('psKosong').innerText = data.pickSlot.kosong; // UPDATE: Kosong masuk dashboard
+
+        let psBelumHTML = ''; data.pickSlot.listBelum.forEach(x => { psBelumHTML += `<tr><td style="white-space: nowrap; padding-left: 12px;"><b style="color: #334155;">${x.bin}</b></td><td>${x.product}</td><td class="text-muted">${x.mid}</td></tr>`; });
+        document.getElementById('psTableBelum').innerHTML = psBelumHTML || '<tr><td colspan="3" class="text-center text-success fw-bold py-3">🎉 Semua sudah divalidasi</td></tr>';
+
+        let psNotMatchHTML = ''; data.pickSlot.listNotMatch.forEach(x => { psNotMatchHTML += `<tr><td style="white-space: nowrap; padding-left: 12px;"><b style="color: #334155;">${x.bin}</b></td><td>${x.product}</td><td class="text-danger fw-bold">${x.mid}</td></tr>`; });
+        document.getElementById('psTableNotMatch').innerHTML = psNotMatchHTML || '<tr><td colspan="3" class="text-center text-success fw-bold py-3">🎉 Tidak ada Not Match</td></tr>';
+
+        document.getElementById('rbTotal').innerText = data.reverseBin.target; document.getElementById('rbDone').innerText = data.reverseBin.match;
+        document.getElementById('rbPctMatch').innerText = data.reverseBin.pctMatch + '%'; document.getElementById('rbPctBelum').innerText = data.reverseBin.pctBelum + '%';
+        document.getElementById('rbKosong').innerText = data.reverseBin.kosong; // UPDATE: Kosong masuk dashboard
+
+        let rbBelumHTML = ''; data.reverseBin.listBelum.forEach(x => { rbBelumHTML += `<tr><td style="white-space: nowrap; padding-left: 12px;"><b style="color: #334155;">${x.bin}</b></td><td>${x.product}</td><td class="text-muted">${x.mid}</td></tr>`; });
+        document.getElementById('rbTableBelum').innerHTML = rbBelumHTML || '<tr><td colspan="3" class="text-center text-success fw-bold py-3">🎉 Semua sudah divalidasi</td></tr>';
+
+        let rbNotMatchHTML = ''; data.reverseBin.listNotMatch.forEach(x => { rbNotMatchHTML += `<tr><td style="white-space: nowrap; padding-left: 12px;"><b style="color: #334155;">${x.bin}</b></td><td>${x.product}</td><td class="text-danger fw-bold">${x.mid}</td></tr>`; });
+        document.getElementById('rbTableNotMatch').innerHTML = rbNotMatchHTML || '<tr><td colspan="3" class="text-center text-success fw-bold py-3">🎉 Tidak ada Not Match</td></tr>';
+
+        if (document.getElementById('lblTotalBinMat')) {
+          document.getElementById('lblTotalBinMat').innerText = data.totalBinMat + " baris"; document.getElementById('lblBinMat0102InStock').innerText = data.binMat0102InStock + " items";
+          document.getElementById('lblBinMat0102NotInStock').innerText = data.binMat0102NotInStock + " items"; document.getElementById('lblStock0102NotInBinMat').innerText = data.stock0102NotInBinMat + " items";
+        }
+      }
+
+      function openScanner() {
+        scanModal.show(); html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 }, onScanSuccess);
+      }
+      function onScanSuccess(decodedText) {
+        document.getElementById('binCode').value = decodedText;
+        try { new Audio('https://www.soundjay.com/buttons/sounds/button-3.mp3').play().catch(()=>{}); } catch(e){}
+        stopScanner(); scanModal.hide(); handleFormSubmit(null);
+      }
+      function stopScanner() { if (html5QrCode && html5QrCode.isScanning) html5QrCode.stop().then(ignore => html5QrCode.clear()); }
+
+      // ==========================================================
+      // UPDATE: MENGIRIM RESPONSE.PRODUCTS KE POPUP INPUT MID
+      // ==========================================================
+      async function handleFormSubmit(e) {
+        if(e) e.preventDefault(); document.activeElement.blur();
+        const binVal = document.getElementById('binCode').value.trim(); if(!binVal) return;
+        const btn = document.getElementById('btnSubmit'); btn.innerHTML = '⏳ Memeriksa...'; btn.disabled = true;
+
+        try {
+          const response = await sendRequest({ action: 'checkBin', bin: binVal });
+
+          if (response.status === 'already_scanned') {
+             function createScannedCard(item, color, icon) {
+               return `<div style="border-left: 6px solid ${color}; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.06);"><div style="display: flex; gap: 10px;"><div style="font-size: 1.2rem;">${icon}</div><div><div style="font-weight: 800; color: #1e293b; font-size: 1.05rem; line-height: 1.3; margin-bottom: 4px;">${item.name}</div><div style="color: #64748b; font-size: 0.85rem;">Deskripsi: <b style="color: #0f172a; font-size: 0.95rem;">${item.mid}</b></div>${item.remark ? `<div style="color: #b91c1c; font-size: 0.8rem; font-weight: 700; margin-top: 5px; background: #fef2f2; padding: 4px 8px; border-radius: 4px; display: inline-block;">Ket: ${item.remark}</div>` : ''}</div></div></div>`;
+             }
+
+             let htmlSummary = `<div style="text-align:left; max-height: 50vh; overflow-y: auto; padding-right: 5px;">`;
+             // UPDATE: Menampilkan produk yang belum diaudit
+             if(response.summary.unaudited && response.summary.unaudited.length > 0) {
+               htmlSummary += `<div style="font-weight: 900; color: #475569; font-size: 0.85rem; margin-bottom: 8px; margin-top: 5px;">⏳ BELUM DIAUDIT</div>`;
+               response.summary.unaudited.forEach(item => htmlSummary += createScannedCard(item, '#94a3b8', '⏳'));
+             }
+             if(response.summary.match.length > 0) { htmlSummary += `<div style="font-weight: 900; color: #15803d; font-size: 0.85rem; margin-bottom: 8px; margin-top: 15px;">✅ PRODUK MATCH</div>`; response.summary.match.forEach(item => htmlSummary += createScannedCard(item, '#22c55e', '👍')); }
+             if(response.summary.notmatch.length > 0) { htmlSummary += `<div style="font-weight: 900; color: #b91c1c; font-size: 0.85rem; margin-bottom: 8px; margin-top: 15px;">❌ PRODUK NOT MATCH</div>`; response.summary.notmatch.forEach(item => htmlSummary += createScannedCard(item, '#ef4444', '⚠️')); }
+             if(response.summary.empty.length > 0) { htmlSummary += `<div style="font-weight: 900; color: #b45309; font-size: 0.85rem; margin-bottom: 8px; margin-top: 15px;">📭 ITEM KOSONG</div>`; response.summary.empty.forEach(item => htmlSummary += createScannedCard(item, '#eab308', '👻')); }
+             htmlSummary += `</div>`;
+             
+             Swal.fire({ 
+               title: `<span style="font-weight: 900;">Bin <b style="color: #b71c1c;">${response.bin}</b><br>Sudah Diaudit!</span>`, 
+               html: htmlSummary, showDenyButton: true, confirmButtonColor: '#64748b', denyButtonColor: '#3b82f6', confirmButtonText: 'Tutup', denyButtonText: '🔄 Update MID Baru', width: '95%' 
+             }).then((result) => {
+               if (result.isDenied) { showInputMidPopup(response.bin, response.products); } else { document.getElementById('binCode').value = ''; }
+             });
+          } 
+          else if (response.status === 'bin_not_found_030405') { showInputMidPopup(response.bin, null); }
+          else if (response.type === 'POPUP_LIST') { showAuditListPopup(binVal, response.products, response.suffix); } 
+          else { Swal.fire('Error!', response.message, 'error'); }
+        } catch (error) { Swal.fire('Error', 'Gagal terhubung ke Database Google.', 'error'); } 
+        finally { btn.innerHTML = '🔍 Cek Bin Ini'; btn.disabled = false; }
+      }
+
+      function toggleRemark(idx, status, suffix) {
+        const input12 = document.getElementById('remark_'+idx), checkArea345 = document.getElementById('check_area_'+idx);
+        if(status === 'notmatch') {
+            if (['03','04','05'].includes(suffix)) { checkArea345.style.display = 'block'; document.getElementById('verified_'+idx).value = 'false'; } 
+            else { input12.style.display = 'block'; input12.focus(); }
+        } else {
+            if (['03','04','05'].includes(suffix)) { checkArea345.style.display = 'none'; document.getElementById('verified_'+idx).value = 'true'; document.getElementById('stock_status_'+idx).innerHTML = ''; } 
+            else { input12.style.display = 'none'; input12.value = ''; }
+        }
+      }
+
+      async function verifyStock(bin, idx) {
+         const actualMid = document.getElementById('actual_mid_'+idx).value.trim(), statusLabel = document.getElementById('stock_status_'+idx);
+         if (!actualMid) { statusLabel.innerHTML = '<span class="text-danger fw-bold">⚠ Masukkan Angka Product dulu!</span>'; return; }
+         statusLabel.innerHTML = '<span class="text-warning fw-bold">⏳ Mengecek...</span>';
+         try {
+            const checkRes = await sendRequest({ action: 'checkAvailableStock', bin: bin, mid: actualMid });
+            if(checkRes.status === 'success') {
+               statusLabel.innerHTML = '<span class="text-success fw-bold">✔ ' + checkRes.message + '</span>';
+               document.getElementById('verified_'+idx).value = 'true'; document.getElementById('remark_'+idx).value = 'Aktual: ' + actualMid; 
+            } else { statusLabel.innerHTML = '<span class="text-danger fw-bold">✖ ' + checkRes.message + '</span>'; document.getElementById('verified_'+idx).value = 'false'; }
+         } catch (e) { statusLabel.innerHTML = '<span class="text-danger fw-bold">✖ Error.</span>'; }
+      }
+
+      function showAuditListPopup(bin, products, suffix) {
+        let htmlContent = '<div style="max-height: 65vh; overflow-y: auto; overflow-x: hidden; text-align: left; padding-right: 5px;">';
+        
+        products.forEach((p, idx) => {
+           htmlContent += `
+             <div style="border: 2px solid #e2e8f0; padding: 16px; margin-bottom: 15px; border-radius: 14px; background: #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+               <div style="margin-bottom: 12px; border-bottom: 2px dashed #cbd5e1; padding-bottom: 12px;">
+                 <div style="display: inline-block; background: #eff6ff; color: #1d4ed8; font-size: 1.4rem; font-weight: 900; padding: 6px 12px; border-radius: 8px; margin-bottom: 8px; letter-spacing: 1px; border: 1px solid #bfdbfe;">
+                   🏷️ ${p.product}
+                 </div>
+                 <div style="font-size: 1.15rem; font-weight: 800; color: #0f172a; line-height: 1.4;">${p.mid}</div>
+               </div>
+               <div class="custom-radio-group">
+                 <input type="radio" class="custom-radio-btn" name="status_${idx}" id="m_${idx}" value="match" checked onchange="toggleRemark(${idx}, 'match', '${suffix}')">
+                 <label class="custom-radio-label label-match" for="m_${idx}">✔ Match</label>
+                 <input type="radio" class="custom-radio-btn" name="status_${idx}" id="nm_${idx}" value="notmatch" onchange="toggleRemark(${idx}, 'notmatch', '${suffix}')">
+                 <label class="custom-radio-label label-notmatch" for="nm_${idx}">✖ Not Match</label>
+                 <input type="radio" class="custom-radio-btn" name="status_${idx}" id="e_${idx}" value="empty" onchange="toggleRemark(${idx}, 'empty', '${suffix}')">
+                 <label class="custom-radio-label label-empty" for="e_${idx}">📭 Kosong</label>
+               </div>
+               <input type="text" id="remark_${idx}" class="form-control form-control-lg mt-3" placeholder="✍️ Ketik Angka Aktual di sini..." style="display:none; border: 2px solid #ef4444; border-radius: 10px; font-weight: 700; background-color: #fef2f2;">
+               <div id="check_area_${idx}" style="display:none; margin-top: 15px; background: #fffbeb; padding: 15px; border-radius: 12px; border: 2px solid #fde68a;">
+                  <label class="fw-bold mb-2 text-danger" style="font-size:0.85rem;">⚠️ Wajib Cek Aktual ke Stok</label>
+                  <input type="number" pattern="[0-9]*" inputmode="numeric" id="actual_mid_${idx}" class="form-control form-control-lg mb-2" placeholder="Ketik Angka Product disini..." style="font-weight: 700; border-radius: 10px;">
+                  <button type="button" class="btn btn-warning w-100 fw-bold text-dark" style="border-radius: 10px; padding: 12px; font-size:1rem;" onclick="verifyStock('${bin}', ${idx})">🔍 Cek Available Stock</button>
+                  <input type="hidden" id="verified_${idx}" value="true">
+                  <div id="stock_status_${idx}" class="mt-2 text-center" style="font-size: 0.9rem;"></div>
+               </div>
+             </div>`;
+        });
+        htmlContent += '</div>';
+
+        Swal.fire({
+          title: `<span style="font-size:1.3rem; font-weight: 900;">Audit Bin <b style="color:#d32f2f; background: #fee2e2; padding: 2px 8px; border-radius: 6px;">${bin}</b></span>`,
+          html: htmlContent, showCancelButton: true, confirmButtonColor: '#d32f2f', confirmButtonText: '💾 SIMPAN AUDIT', cancelButtonText: 'Batal', width: '95%', customClass: { popup: 'rounded-4' },
+          preConfirm: () => {
+            let auditData = [];
+            for(let i=0; i<products.length; i++) {
+              let statusVal = document.getElementById('m_'+i).checked ? 'match' : (document.getElementById('nm_'+i).checked ? 'notmatch' : 'empty');
+              if (['03','04','05'].includes(suffix)) {
+                  let isVerified = document.getElementById('verified_'+i).value === 'true', remarkVal = document.getElementById('remark_'+i) ? document.getElementById('remark_'+i).value : '';
+                  if (statusVal === 'notmatch' && !isVerified) { Swal.showValidationMessage('Pastikan status "Not Match" sudah dicek ke Stok!'); return false; }
+                  auditData.push({ row: products[i].row, status: statusVal, remark: remarkVal });
+              } else {
+                  let remark = document.getElementById('remark_'+i).value.trim();
+                  if(statusVal === 'notmatch' && remark === '') { Swal.showValidationMessage('Keterangan WAJIB diisi untuk produk Not Match!'); return false; }
+                  auditData.push({ row: products[i].row, status: statusVal, remark: remark });
+              }
+            } return auditData;
+          }
+        }).then(async (result) => {
+          if (result.isConfirmed) {
+             Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+             const saveRes = await sendRequest({ action: 'submitBinAudit', bin: bin, auditData: result.value });
+             if(saveRes.status === 'success') { updateTaskBoard(saveRes.stats); Swal.fire('Tersimpan!', saveRes.message, 'success'); document.getElementById('binCode').value = ''; } 
+             else { Swal.fire('Gagal', saveRes.message, 'error'); }
+          }
+        });
+      }
+
+      // ==========================================================
+      // UPDATE UI: CHECKBOX DINAMIS SELALU MUNCUL SAAT BIN KOSONG
+      // ==========================================================
+      function showAuditListPopup(bin, products, suffix) {
+        let htmlContent = '<div style="max-height: 65vh; overflow-y: auto; overflow-x: hidden; text-align: left; padding-right: 5px;">';
+        
+        products.forEach((p, idx) => {
+           // Deteksi status yang sudah ada (Partial Audit)
+           let mCheck = '', nmCheck = '', eCheck = '', badgeHTML = '';
+           if (p.status === 'match') { mCheck = 'checked'; badgeHTML = `<span style="background:#22c55e; color:white; padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: 8px;">✅ Sudah Teraudit</span>`; }
+           else if (p.status === 'notmatch') { nmCheck = 'checked'; badgeHTML = `<span style="background:#ef4444; color:white; padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: 8px;">❌ Sudah Teraudit</span>`; }
+           else if (p.status === 'empty') { eCheck = 'checked'; badgeHTML = `<span style="background:#f59e0b; color:white; padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: 8px;">📭 Sudah Teraudit</span>`; }
+           else { mCheck = 'checked'; } // Default jika belum diaudit
+
+           let remarkValue = p.remark && p.remark !== 'ITEM KOSONG' ? p.remark : '';
+           let remarkDisplay = nmCheck === 'checked' ? 'block' : 'none';
+
+           htmlContent += `
+             <div style="border: 2px solid #e2e8f0; padding: 16px; margin-bottom: 15px; border-radius: 14px; background: #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+               <div style="margin-bottom: 12px; border-bottom: 2px dashed #cbd5e1; padding-bottom: 12px;">
+                 <div style="display: flex; align-items: center; flex-wrap: wrap;">
+                   <div style="background: #eff6ff; color: #1d4ed8; font-size: 1.4rem; font-weight: 900; padding: 6px 12px; border-radius: 8px; margin-bottom: 8px; letter-spacing: 1px; border: 1px solid #bfdbfe;">
+                     🏷️ ${p.product}
+                   </div>
+                   ${badgeHTML}
+                 </div>
+                 <div style="font-size: 1.15rem; font-weight: 800; color: #0f172a; line-height: 1.4;">${p.mid}</div>
+               </div>
+               <div class="custom-radio-group">
+                 <input type="radio" class="custom-radio-btn" name="status_${idx}" id="m_${idx}" value="match" ${mCheck} onchange="toggleRemark(${idx}, 'match', '${suffix}')">
+                 <label class="custom-radio-label label-match" for="m_${idx}">✔ Match</label>
+                 <input type="radio" class="custom-radio-btn" name="status_${idx}" id="nm_${idx}" value="notmatch" ${nmCheck} onchange="toggleRemark(${idx}, 'notmatch', '${suffix}')">
+                 <label class="custom-radio-label label-notmatch" for="nm_${idx}">✖ Not Match</label>
+                 <input type="radio" class="custom-radio-btn" name="status_${idx}" id="e_${idx}" value="empty" ${eCheck} onchange="toggleRemark(${idx}, 'empty', '${suffix}')">
+                 <label class="custom-radio-label label-empty" for="e_${idx}">📭 Kosong</label>
+               </div>
+               <input type="text" id="remark_${idx}" class="form-control form-control-lg mt-3" value="${remarkValue}" placeholder="✍️ Ketik keterangan wajib..." style="display:${remarkDisplay}; border: 2px solid #ef4444; border-radius: 10px; font-weight: 700; background-color: #fef2f2;">
+               <div id="check_area_${idx}" style="display:none; margin-top: 15px; background: #fffbeb; padding: 15px; border-radius: 12px; border: 2px solid #fde68a;">
+                  <label class="fw-bold mb-2 text-danger" style="font-size:0.85rem;">⚠️ Wajib Cek Aktual ke Stok</label>
+                  <input type="number" pattern="[0-9]*" inputmode="numeric" id="actual_mid_${idx}" class="form-control form-control-lg mb-2" placeholder="Ketik Angka Product disini..." style="font-weight: 700; border-radius: 10px;">
+                  <button type="button" class="btn btn-warning w-100 fw-bold text-dark" style="border-radius: 10px; padding: 12px; font-size:1rem;" onclick="verifyStock('${bin}', ${idx})">🔍 Cek Available Stock</button>
+                  <input type="hidden" id="verified_${idx}" value="true">
+                  <div id="stock_status_${idx}" class="mt-2 text-center" style="font-size: 0.9rem;"></div>
+               </div>
+             </div>`;
+        });
+        
+        // FITUR BARU: TOMBOL TAMBAH PRODUK KE-2 UNTUK 01 & 02
+        if (['01', '02'].includes(suffix) && products.length < 2) {
+           htmlContent += `<button type="button" class="btn btn-outline-primary w-100 mt-2 mb-3 fw-bold" style="border-width: 2px; border-style: dashed; padding: 12px; border-radius: 12px;" onclick="Swal.close(); showAddManualPopup('${bin}');">➕ Tambah Product Fisik ke-2 (Baris Baru)</button>`;
+        }
+        
+        htmlContent += '</div>';
+
+        Swal.fire({
+          title: `<span style="font-size:1.3rem; font-weight: 900;">Audit Bin <b style="color:#d32f2f; background: #fee2e2; padding: 2px 8px; border-radius: 6px;">${bin}</b></span>`,
+          html: htmlContent, showCancelButton: true, confirmButtonColor: '#d32f2f', confirmButtonText: '💾 SIMPAN AUDIT', cancelButtonText: 'Batal', width: '95%', customClass: { popup: 'rounded-4' },
+          preConfirm: () => {
+            let auditData = [];
+            for(let i=0; i<products.length; i++) {
+              let statusVal = document.getElementById('m_'+i).checked ? 'match' : (document.getElementById('nm_'+i).checked ? 'notmatch' : 'empty');
+              if (['03','04','05'].includes(suffix)) {
+                  let isVerified = document.getElementById('verified_'+i).value === 'true', remarkVal = document.getElementById('remark_'+i) ? document.getElementById('remark_'+i).value : '';
+                  if (statusVal === 'notmatch' && !isVerified) { Swal.showValidationMessage('Pastikan status "Not Match" sudah dicek ke Stok!'); return false; }
+                  auditData.push({ row: products[i].row, status: statusVal, remark: remarkVal });
+              } else {
+                  let remark = document.getElementById('remark_'+i) ? document.getElementById('remark_'+i).value.trim() : '';
+                  if(statusVal === 'notmatch' && remark === '') { Swal.showValidationMessage('Keterangan WAJIB diisi untuk produk Not Match!'); return false; }
+                  auditData.push({ row: products[i].row, status: statusVal, remark: remark });
+              }
+            } return auditData;
+          }
+        }).then(async (result) => {
+          if (result.isConfirmed) {
+             Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+             const saveRes = await sendRequest({ action: 'submitBinAudit', bin: bin, auditData: result.value });
+             if(saveRes.status === 'success') { updateTaskBoard(saveRes.stats); Swal.fire('Tersimpan!', saveRes.message, 'success'); document.getElementById('binCode').value = ''; } 
+             else { Swal.fire('Gagal', saveRes.message, 'error'); }
+          }
+        });
+      }
+
+      // FITUR BARU: FUNGSI TAMBAH MANUAL KHUSUS BIN 01 & 02
+      function showAddManualPopup(bin) {
+        Swal.fire({
+          title: `<span style="font-weight: 900; font-size: 1.25rem;">Tambah Produk ke <b style="color: #d32f2f;">${bin}</b></span>`,
+          html: `
+            <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; padding: 12px; border-radius: 10px; margin-bottom: 12px; font-size: 0.9rem; text-align: left; color: #1e40af; line-height: 1.4;">
+              📍 Masukkan <b>Angka Product (Fisik)</b> ke-2 yang ada di Bin ini. Ini akan menambahkan <b>Baris Baru</b> di Google Sheet.
+            </div>
+            <div style="text-align: left; font-weight: 800; color: #334155; margin-bottom: 8px;">Input Angka Product:</div>
+            <input type="number" pattern="[0-9]*" inputmode="numeric" id="new_mid_input" class="form-control form-control-lg" placeholder="Contoh: 10014" style="font-weight: 800; font-size: 1.2rem; border-radius: 10px; border: 2px solid #cbd5e1; text-align: center;" autocomplete="off" oninput="liveLookupMID()">
+            <div id="live_product_name" style="margin-top: 10px; font-size: 0.95rem; font-weight: 700; color: #1e3a8a; min-height: 24px; padding: 8px; background: #eff6ff; border-radius: 8px; border: 1px dashed #bfdbfe; display: none;"></div>
+          `,
+          showCancelButton: true, confirmButtonColor: '#16a34a', cancelButtonColor: '#64748b', confirmButtonText: '💾 Tambahkan Baris', cancelButtonText: 'Batal', width: '95%', customClass: { popup: 'rounded-4' },
+          preConfirm: () => {
+            const midVal = document.getElementById('new_mid_input').value.trim();
+            if (!midVal) { Swal.showValidationMessage('⚠️ Angka Product wajib diisi!'); return false; }
+            if (midVal && !masterDataMids[midVal]) { Swal.showValidationMessage('⚠️ Angka Product tidak ditemukan di Master Data!'); return false; }
+            return { isKosong: false, mid: midVal, emptyRows: [], actionMode: 'append' }; // Paksa append baris baru
+          }
+        }).then(async (result) => {
+          if (result.isConfirmed) {
+             Swal.fire({ title: 'Menambahkan Baris Baru...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+             const addRes = await sendRequest({ action: 'addNewBin', bin: bin, mid: result.value.mid, isEmpty: false, emptyRows: [], actionMode: 'append' });
+             if(addRes.status === 'success') { updateTaskBoard(addRes.stats); Swal.fire({ icon: 'success', title: 'Berhasil!', html: addRes.message, confirmButtonColor: '#16a34a' }); document.getElementById('binCode').value = ''; } 
+             else { Swal.fire('Gagal', addRes.message, 'error'); }
+          }
+        });
+      }
+
+      function liveLookupMID() {
+        const inputVal = document.getElementById('new_mid_input').value.trim(), displayDiv = document.getElementById('live_product_name');
+        if (!inputVal) { displayDiv.style.display = 'none'; displayDiv.innerHTML = ''; return; }
+        displayDiv.style.display = 'block';
+        if (masterDataMids[inputVal]) {
+          displayDiv.innerHTML = '✅ ' + masterDataMids[inputVal]; displayDiv.style.color = '#15803d'; displayDiv.style.background = '#f0fdf4'; displayDiv.style.borderColor = '#bbf7d0';
+        } else {
+          displayDiv.innerHTML = '❌ Product tidak ditemukan!'; displayDiv.style.color = '#b91c1c'; displayDiv.style.background = '#fef2f2'; displayDiv.style.borderColor = '#fecaca';
+        }
+      }
+    </script>
+  </body>
+</html>
